@@ -2,7 +2,7 @@ extern crate num;
 
 use std::ops::{Add, Sub, Mul, Div, Rem};
 use std::cmp::{PartialEq, Eq};
-use num::{Zero, One, Num, FromPrimitive, ToPrimitive, Bounded};
+use num::{Zero, One, Num, FromPrimitive, ToPrimitive, NumCast, Bounded};
 
 macro_rules! unsigned_fixed_point_impl {
     ($name:ident: $ty:ty, $tyd:ty, $ibits:expr, $fbits:expr) => {
@@ -133,6 +133,12 @@ macro_rules! unsigned_fixed_point_impl {
 
             fn to_f64(&self) -> Option<f64> {
                 Some(self.base as f64 / (1 << $fbits) as f64)
+            }
+        }
+
+        impl NumCast for $name {
+            fn from<T: ToPrimitive>(n: T) -> Option<Self> {
+                n.to_f64().and_then(|f| FromPrimitive::from_f64(f))
             }
         }
 
