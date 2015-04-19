@@ -2,10 +2,10 @@ extern crate num;
 
 use std::ops::{Add, Sub, Mul, Div, Rem};
 use std::cmp::{PartialEq, Eq};
-use num::{Zero, One, Num};
+use num::{Zero, One, Num, FromPrimitive, ToPrimitive};
 
-macro_rules! fixed_point_impl {
-    ($name:ident: $ty:ty, $tyd:ty, $fbits:expr) => {
+macro_rules! unsigned_fixed_point_impl {
+    ($name:ident: $ty:ty, $tyd:ty, $ibits:expr, $fbits:expr) => {
         struct $name {
             base: $ty,
         }
@@ -89,7 +89,53 @@ macro_rules! fixed_point_impl {
                 unimplemented!();
             }
         }
+
+        impl FromPrimitive for $name {
+            fn from_i64(n: i64) -> Option<Self> {
+                if n < 0 || n >= (1 << $ibits) {
+                    None
+                } else {
+                    Some($name {
+                        base: n as $ty << $fbits,
+                    })
+                }
+            }
+
+            fn from_u64(n: u64) -> Option<Self> {
+                if n >= (1 << $ibits) {
+                    None
+                } else {
+                    Some($name {
+                        base: n as $ty << $fbits,
+                    })
+                }
+            }
+
+            fn from_f64(n: f64) -> Option<Self> {
+                if n < 0.0 || n >= (1 << $ibits) as f64 {
+                    None
+                } else {
+                    Some($name {
+                        base: (n * ((1 << $fbits) as f64)) as $ty,
+                    })
+                }
+            }
+        }
+
+        impl ToPrimitive for $name {
+            fn to_i64(&self) -> Option<i64> {
+                Some((self.base >> $fbits) as i64)
+            }
+
+            fn to_u64(&self) -> Option<u64> {
+                Some((self.base >> $fbits) as u64)
+            }
+
+            fn to_f64(&self) -> Option<f64> {
+                Some(self.base as f64 / (1 << $fbits) as f64)
+            }
+        }
     };
 }
 
-fixed_point_impl!(Fixed24p8: u32, u64, 8);
+unsigned_fixed_point_impl!(U24p8: u32, u64, 24, 8);
