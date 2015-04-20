@@ -2,7 +2,8 @@ extern crate num;
 
 use std::ops::{Add, Sub, Mul, Div, Rem};
 use std::cmp::{PartialEq, Eq};
-use num::{Zero, One, Num, FromPrimitive, ToPrimitive, NumCast, Bounded};
+use num::{Zero, One, Num, FromPrimitive, ToPrimitive, NumCast, Bounded, Saturating};
+use num::{CheckedAdd, CheckedSub, CheckedMul, CheckedDiv};
 
 macro_rules! fixed_point_impl {
     ($name:ident: $ty:ty, $tyd:ty, $ibits:expr, $fbits:expr) => {
@@ -162,7 +163,72 @@ macro_rules! fixed_point_impl {
                 }
             }
         }
+
+        impl Saturating for $name {
+            fn saturating_add(self, rhs: Self) -> Self {
+                $name {
+                    base: self.base.saturating_add(rhs.base),
+                }
+            }
+
+            fn saturating_sub(self, rhs: Self) -> Self {
+                $name {
+                    base: self.base.saturating_sub(rhs.base),
+                }
+            }
+        }
+
+        impl CheckedAdd for $name {
+            fn checked_add(&self, rhs: &Self) -> Option<Self> {
+                self.base.checked_add(rhs.base).map(|b| $name {
+                    base: b,
+                })
+            }
+        }
+
+        impl CheckedSub for $name {
+            fn checked_sub(&self, rhs: &Self) -> Option<Self> {
+                self.base.checked_sub(rhs.base).map(|b| $name {
+                    base: b,
+                })
+            }
+        }
+
+        impl CheckedMul for $name {
+            fn checked_mul(&self, rhs: &Self) -> Option<Self> {
+                (self.base as $tyd).checked_mul(rhs.base as $tyd).and_then(|mut base_double| {
+                    base_double = base_double >> $fbits;
+                    let $name { base: max_base } = Self::max_value();
+                    let $name { base: min_base } = Self::min_value();
+                    if base_double > max_base as $tyd || base_double < min_base as $tyd {
+                        None
+                    } else {
+                        Some($name {
+                            base: base_double as $ty
+                        })
+                    }
+                })
+            }
+        }
+
+        impl CheckedDiv for $name {
+            fn checked_div(&self, rhs: &Self) -> Option<Self> {
+                ((self.base as $tyd) << $fbits).checked_div(rhs.base as $tyd)
+                    .and_then(|base_double| {
+                        let $name { base: max_base } = Self::max_value();
+                        let $name { base: min_base } = Self::min_value();
+                        if base_double > max_base as $tyd || base_double < min_base as $tyd {
+                            None
+                        } else {
+                            Some($name {
+                                base: base_double as $ty
+                            })
+                        }
+                    })
+            }
+        }
     };
 }
 
 fixed_point_impl!(U24p8: u32, u64, 24, 8);
+fixed_point_impl!(I24p8: i32, i64, 24, 8);
