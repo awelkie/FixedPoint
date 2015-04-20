@@ -4,7 +4,7 @@ use std::ops::{Add, Sub, Mul, Div, Rem};
 use std::cmp::{PartialEq, Eq};
 use num::{Zero, One, Num, FromPrimitive, ToPrimitive, NumCast, Bounded};
 
-macro_rules! unsigned_fixed_point_impl {
+macro_rules! fixed_point_impl {
     ($name:ident: $ty:ty, $tyd:ty, $ibits:expr, $fbits:expr) => {
         struct $name {
             base: $ty,
@@ -92,7 +92,8 @@ macro_rules! unsigned_fixed_point_impl {
 
         impl FromPrimitive for $name {
             fn from_i64(n: i64) -> Option<Self> {
-                if n < 0 || n >= (1 << $ibits) {
+                if n < Self::min_value().to_i64().unwrap() ||
+                    n > Self::max_value().to_i64().unwrap() {
                     None
                 } else {
                     Some($name {
@@ -102,7 +103,7 @@ macro_rules! unsigned_fixed_point_impl {
             }
 
             fn from_u64(n: u64) -> Option<Self> {
-                if n >= (1 << $ibits) {
+                if n > Self::max_value().to_u64().unwrap() {
                     None
                 } else {
                     Some($name {
@@ -112,7 +113,8 @@ macro_rules! unsigned_fixed_point_impl {
             }
 
             fn from_f64(n: f64) -> Option<Self> {
-                if n < 0.0 || n >= (1 << $ibits) as f64 {
+                if n < Self::min_value().to_f64().unwrap() ||
+                    n > Self::max_value().to_f64().unwrap() {
                     None
                 } else {
                     Some($name {
@@ -127,8 +129,13 @@ macro_rules! unsigned_fixed_point_impl {
                 Some((self.base >> $fbits) as i64)
             }
 
+            #[allow(unused_comparisons)]
             fn to_u64(&self) -> Option<u64> {
-                Some((self.base >> $fbits) as u64)
+                if self.base < 0 {
+                    None
+                } else {
+                    Some((self.base >> $fbits) as u64)
+                }
             }
 
             fn to_f64(&self) -> Option<f64> {
@@ -145,7 +152,7 @@ macro_rules! unsigned_fixed_point_impl {
         impl Bounded for $name {
             fn min_value() -> Self {
                 $name {
-                    base: 0,
+                    base: Bounded::min_value(),
                 }
             }
 
@@ -158,4 +165,4 @@ macro_rules! unsigned_fixed_point_impl {
     };
 }
 
-unsigned_fixed_point_impl!(U24p8: u32, u64, 24, 8);
+fixed_point_impl!(U24p8: u32, u64, 24, 8);
